@@ -26,6 +26,20 @@ func (rep *stockRepo) Get(ctx context.Context, query string) (*entities.Stock, e
 	return stock, nil
 }
 
+func (rep *stockRepo) GetSpecificProduct(ctx context.Context, query string) (*entities.Stock, error) {
+	var stockProduct *entities.StockProduct
+	if err := rep.Db.WithContext(ctx).Raw(query).Find(&stockProduct).Error; err != nil {
+		return nil, err
+	}
+	stock := &entities.Stock{
+		Id: stockProduct.StockId,
+		StockProducts: []entities.StockProduct{
+			*stockProduct,
+		},
+	}
+	return stock, nil
+}
+
 func (rep *stockRepo) Create(ctx context.Context, entity *entities.Stock) error {
 	result := rep.Db.WithContext(ctx).Create(&entity)
 	return result.Error

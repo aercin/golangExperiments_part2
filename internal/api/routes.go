@@ -4,6 +4,7 @@ import (
 	"go-poc/internal/api/abstractions"
 	"go-poc/internal/application/models/add_product_to_stock"
 	"go-poc/internal/application/models/get_stock"
+	"go-poc/internal/application/models/get_stock_product"
 
 	"go-poc/pkg/data_validation"
 
@@ -13,4 +14,5 @@ import (
 func NewRouter(e *echo.Group, h abstractions.Handlers) {
 	e.POST("/:id/product", h.AddProductToStock, data_validation.ValidationMiddleware(&add_product_to_stock.Request{}))
 	e.GET("/:id", h.GetStock, data_validation.ValidationMiddleware(&get_stock.Request{}))
+	e.GET("/:stock_id/products/:product_id", h.GetStockProduct, data_validation.ValidationMiddleware(&get_stock_product.Request{}))
 }

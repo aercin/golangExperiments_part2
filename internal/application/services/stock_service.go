@@ -5,6 +5,7 @@ import (
 	application_abstraction "go-poc/internal/application/abstractions"
 	"go-poc/internal/application/models/add_product_to_stock"
 	"go-poc/internal/application/models/get_stock"
+	"go-poc/internal/application/models/get_stock_product"
 	domain_abstraction "go-poc/internal/domain/abstractions"
 	"go-poc/internal/domain/entities"
 	"time"
@@ -43,6 +44,33 @@ func (s *stockService) GetStock(ctx context.Context, request get_stock.Request) 
 	}
 
 	copier.Copy(&res.Products, &stock.StockProducts)
+
+	return res
+}
+
+func (s *stockService) GetStockProduct(ctx context.Context, request get_stock_product.Request) get_stock_product.Response {
+	sql, _, _ := goqu.Dialect("postgres").
+		Select("sp.*").
+		From(goqu.T("stocks").As("s")).
+		InnerJoin(goqu.T("stock_products").As("sp"), goqu.On(goqu.Ex{"s.id": goqu.I("sp.stock_id")})).
+		Where(goqu.Ex{"s.id": request.StockId, "sp.product_id": request.ProductId}).ToSQL()
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	stock, err := s.Uow.GetStockRepo().GetSpecificProduct(ctx, sql)
+
+	if err != nil {
+		return get_stock_product.Response{
+			IsSuccess: false,
+		}
+	}
+
+	res := get_stock_product.Response{
+		IsSuccess: true,
+	}
+
+	copier.Copy(&res, &stock.StockProducts[0])
 
 	return res
 }

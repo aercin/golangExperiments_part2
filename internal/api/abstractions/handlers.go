@@ -8,4 +8,6 @@ type Handlers interface {
 	AddProductToStock(c echo.Context) error
 
 	GetStock(c echo.Context) error
+
+	GetStockProduct(c echo.Context) error
 }
