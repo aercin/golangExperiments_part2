@@ -11,8 +11,11 @@ import (
 )
 
 type config struct {
-	Postgres   postgresOptions
-	HttpServer httpServerOptions
+	Postgres     postgresOptions
+	HttpServer   httpServerOptions
+	RabbitMQ     rabbitMqOptions
+	MessageRelay messageRelayOptions
+	Log          logOptions
 }
 
 type postgresOptions struct {
@@ -25,6 +28,21 @@ type postgresOptions struct {
 
 type httpServerOptions struct {
 	Port int
+}
+
+type rabbitMqOptions struct {
+	BrokerAddress  string
+	ProduceTimeout int
+	ProduceQueue   string
+	ConsumeQueue   string
+}
+
+type messageRelayOptions struct {
+	CycleTime int
+}
+
+type logOptions struct {
+	Path string
 }
 
 func NewConfig() abstractions.Config {

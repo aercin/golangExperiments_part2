@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+   postgres:
+    image: postgres:14.2-alpine3.15
+    container_name: postgres
+    volumes:
+      - db_volume:/var/lib/postgresql/data 
+    environment: 
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: sa1234
+    ports:
+      - 5432:5432
+    networks:
+      - dev
+      
+   redis:
+    image: redis:6.2
+    container_name: redis
+    restart: always
+    ports:
+      - 6379:6379 
+    volumes:
+      - ./redis-data:/data
+    environment:
+      - REDIS_PASSWORD=nosqlPoc
+    networks:
+      - dev
+
+   consul:
+    image: consul:1.15.4
+    command: consul agent -dev -log-level=warn -ui -client=0.0.0.0
+    hostname: consul
+    container_name: consul
+    ports:
+      - 8500:8500
+    volumes:
+      - ./consul-data:/consul/data 
+    networks:
+      - dev 
+      
+   vault:
+    image: vault:1.13.3
+    container_name: vault
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=dev-only-token  
+    ports:
+      - 8200:8200
+    volumes:
+      - ./vault-data:/vault/data 
+    networks:
+      - dev 
+      
+   rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - 5003:5672
+      - 5004:15672
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+      - rabbitmq_log:/var/log/rabbitmq
+    healthcheck:
+     test: ["CMD", "curl", "-f", "http://rabbitmq:15672"]
+     interval: 30s
+     timeout: 10s
+     retries: 5
+    networks:
+      - dev
+    
+networks:
+  dev:
+    driver: bridge 
+
+volumes:
+  db_volume:
+  redis-data:
+  consul-data:
+  vault-data:
+  rabbitmq_data:
+  rabbitmq_log: 

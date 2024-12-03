@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	application_abstraction "go-poc/internal/application/abstractions"
+	"go-poc/internal/application/integration_events"
 	"go-poc/internal/application/models/add_product_to_stock"
+	"go-poc/internal/application/models/decrease_stock"
 	"go-poc/internal/application/models/get_stock"
 	"go-poc/internal/application/models/get_stock_product"
 	domain_abstraction "go-poc/internal/domain/abstractions"
@@ -12,7 +14,9 @@ import (
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
+	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
+	jsoniter "github.com/json-iterator/go"
 )
 
 type stockService struct {
@@ -121,4 +125,84 @@ func addOrUpdateStockProduct(s *entities.Stock, productId string, quantity int) 
 		ProductId: productId,
 		Quantity:  quantity,
 	})
+}
+
+func (s *stockService) DecreaseStock(ctx context.Context, request decrease_stock.Request) decrease_stock.Response {
+
+	inbox_repo := s.Uow.GetInboxRepo()
+
+	if inbox_repo.Any(ctx, request.MessageId) {
+		return decrease_stock.Response{
+			IsSuccess: true,
+		}
+	}
+
+	sql, _, _ := goqu.Dialect("postgre").From("stocks").Limit(1).ToSQL()
+
+	stock_repo := s.Uow.GetStockRepo()
+
+	stock, err := stock_repo.Get(ctx, sql)
+
+	if err != nil || stock.Id == 0 {
+		return decrease_stock.Response{
+			IsSuccess: false,
+		}
+	}
+
+	requestMap := make(map[string]int)
+	for _, p := range request.Items {
+		requestMap[p.ProductId] = p.Quantity
+	}
+
+	isProductAvailableInStock := true
+	for _, sp := range stock.StockProducts {
+		quantity, isExist := requestMap[sp.ProductId]
+		if !isExist || quantity > sp.Quantity {
+			isProductAvailableInStock = false
+			break
+		}
+		sp.Quantity -= quantity
+		sp.IsModified = true
+	}
+
+	inbox_repo.Create(ctx, &entities.InboxMessage{
+		MessageId: request.MessageId,
+		CreatedOn: time.Now(),
+	})
+
+	var serializedStockReportedEvent []byte
+
+	if isProductAvailableInStock {
+
+		stock_repo.Update(ctx, stock)
+
+		serializedStockReportedEvent, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(integration_events.StockReportedEvent{
+			MessageId: uuid.NewString(),
+			MessageType: []string{
+				integration_events.StockDecreasedEventMessageType,
+			},
+			Message: integration_events.StockReportedEventMessage{
+				OrderNo: request.OrderNo,
+			},
+		})
+	} else {
+		serializedStockReportedEvent, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(integration_events.StockReportedEvent{
+			MessageId: uuid.NewString(),
+			MessageType: []string{
+				integration_events.StockNotDecreasedEventMessageType,
+			},
+			Message: integration_events.StockReportedEventMessage{
+				OrderNo: request.OrderNo,
+			},
+		})
+	}
+
+	s.Uow.GetOutboxRepo().Create(ctx, &entities.OutboxMessage{
+		Message:   string(serializedStockReportedEvent),
+		CreatedOn: time.Now(),
+	})
+
+	return decrease_stock.Response{
+		IsSuccess: true,
+	}
 }

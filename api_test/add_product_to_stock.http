@@ -2,6 +2,6 @@ POST http://localhost:8080/api/v1.0/stock/99/product
 content-type: application/json
 
 { 
-    "ProductId":"12347",
+    "ProductId":"6b95c4f0-2e44-45e0-a697-3f3f4af3de66",
     "Quantity":2
 }
