@@ -33,8 +33,8 @@ func (rep *stockRepo) GetSpecificProduct(ctx context.Context, query string) (*en
 	}
 	stock := &entities.Stock{
 		Id: stockProduct.StockId,
-		StockProducts: []entities.StockProduct{
-			*stockProduct,
+		StockProducts: []*entities.StockProduct{
+			stockProduct,
 		},
 	}
 	return stock, nil

@@ -121,7 +121,7 @@ func addOrUpdateStockProduct(s *entities.Stock, productId string, quantity int) 
 		}
 	}
 
-	s.StockProducts = append(s.StockProducts, entities.StockProduct{
+	s.StockProducts = append(s.StockProducts, &entities.StockProduct{
 		ProductId: productId,
 		Quantity:  quantity,
 	})
