@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	jsoniter "github.com/json-iterator/go"
+	"go.uber.org/dig"
 )
 
 type stockService struct {
@@ -24,12 +25,12 @@ type stockService struct {
 }
 
 func NewStockService(uow domain_abstraction.UnitOfWork) application_abstraction.StockService {
-	return &stockService{
+	return stockService{
 		Uow: uow,
 	}
 }
 
-func (s *stockService) GetStock(ctx context.Context, request get_stock.Request) get_stock.Response {
+func (s stockService) GetStock(ioc *dig.Scope, ctx context.Context, request get_stock.Request) get_stock.Response {
 	sql, _, _ := goqu.Dialect("postgres").From("stocks").Where(goqu.Ex{"id": request.StockId}).ToSQL()
 
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
@@ -52,7 +53,7 @@ func (s *stockService) GetStock(ctx context.Context, request get_stock.Request) 
 	return res
 }
 
-func (s *stockService) GetStockProduct(ctx context.Context, request get_stock_product.Request) get_stock_product.Response {
+func (s stockService) GetStockProduct(ctx context.Context, request get_stock_product.Request) get_stock_product.Response {
 	sql, _, _ := goqu.Dialect("postgres").
 		Select("sp.*").
 		From(goqu.T("stocks").As("s")).
@@ -79,37 +80,44 @@ func (s *stockService) GetStockProduct(ctx context.Context, request get_stock_pr
 	return res
 }
 
-func (s *stockService) AddProductToStock(ctx context.Context, request add_product_to_stock.Request) add_product_to_stock.Response {
+func (s stockService) AddProductToStock(ctx context.Context, request add_product_to_stock.Request) add_product_to_stock.Response {
+
+	response := add_product_to_stock.Response{
+		IsSuccess: true,
+	}
+
+	defer func() {
+		if response.IsSuccess {
+			s.Uow.Commit()
+		} else {
+			s.Uow.Rollback()
+		}
+	}()
+
 	sql, _, _ := goqu.Dialect("postgres").From("stocks").Where(goqu.Ex{"id": request.StockId}).ToSQL()
 
-	stock_repo := s.Uow.GetStockRepo()
-
-	stock, err := stock_repo.Get(ctx, sql)
+	stock, err := s.Uow.GetStockRepo().Get(ctx, sql)
 
 	if err != nil {
-		return add_product_to_stock.Response{
-			IsSuccess: false,
-		}
+		response.IsSuccess = false
+		return response
 	}
 
 	addOrUpdateStockProduct(stock, request.ProductId, request.Quantity)
 
 	if stock.Id == 0 {
 		stock.Id = request.StockId
-		err = stock_repo.Create(ctx, stock)
+		err = s.Uow.GetStockRepo().Create(ctx, stock)
 	} else {
-		err = stock_repo.Update(ctx, stock)
+		err = s.Uow.GetStockRepo().Update(ctx, stock)
 	}
 
 	if err != nil {
-		return add_product_to_stock.Response{
-			IsSuccess: false,
-		}
+		response.IsSuccess = false
+		return response
 	}
 
-	return add_product_to_stock.Response{
-		IsSuccess: true,
-	}
+	return response
 }
 
 func addOrUpdateStockProduct(s *entities.Stock, productId string, quantity int) {
@@ -127,26 +135,31 @@ func addOrUpdateStockProduct(s *entities.Stock, productId string, quantity int) 
 	})
 }
 
-func (s *stockService) DecreaseStock(ctx context.Context, request decrease_stock.Request) decrease_stock.Response {
+func (s stockService) DecreaseStock(ctx context.Context, request decrease_stock.Request) decrease_stock.Response {
 
-	inbox_repo := s.Uow.GetInboxRepo()
+	response := decrease_stock.Response{
+		IsSuccess: true,
+	}
 
-	if inbox_repo.Any(ctx, request.MessageId) {
-		return decrease_stock.Response{
-			IsSuccess: true,
+	defer func() {
+		if response.IsSuccess {
+			s.Uow.Commit()
+		} else {
+			s.Uow.Rollback()
 		}
+	}()
+
+	if s.Uow.GetInboxRepo().Any(ctx, request.MessageId) {
+		return response
 	}
 
 	sql, _, _ := goqu.Dialect("postgre").From("stocks").Limit(1).ToSQL()
 
-	stock_repo := s.Uow.GetStockRepo()
-
-	stock, err := stock_repo.Get(ctx, sql)
+	stock, err := s.Uow.GetStockRepo().Get(ctx, sql)
 
 	if err != nil || stock.Id == 0 {
-		return decrease_stock.Response{
-			IsSuccess: false,
-		}
+		response.IsSuccess = false
+		return response
 	}
 
 	requestMap := make(map[string]int)
@@ -165,7 +178,7 @@ func (s *stockService) DecreaseStock(ctx context.Context, request decrease_stock
 		sp.IsModified = true
 	}
 
-	inbox_repo.Create(ctx, &entities.InboxMessage{
+	s.Uow.GetInboxRepo().Create(ctx, &entities.InboxMessage{
 		MessageId: request.MessageId,
 		CreatedOn: time.Now(),
 	})
@@ -174,7 +187,7 @@ func (s *stockService) DecreaseStock(ctx context.Context, request decrease_stock
 
 	if isProductAvailableInStock {
 
-		stock_repo.Update(ctx, stock)
+		s.Uow.GetStockRepo().Update(ctx, stock)
 
 		serializedStockReportedEvent, _ = jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(integration_events.StockReportedEvent{
 			MessageId: uuid.NewString(),
@@ -202,7 +215,5 @@ func (s *stockService) DecreaseStock(ctx context.Context, request decrease_stock
 		CreatedOn: time.Now(),
 	})
 
-	return decrease_stock.Response{
-		IsSuccess: true,
-	}
+	return response
 }

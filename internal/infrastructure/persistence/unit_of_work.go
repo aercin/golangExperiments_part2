@@ -7,29 +7,34 @@ import (
 )
 
 type unitOfWork struct {
-	Db *gorm.DB
+	Db         *gorm.DB
+	StockRepo  abstractions.StockRepository
+	InboxRepo  abstractions.InboxRepository
+	OutboxRepo abstractions.OutboxRepository
 }
 
-func NewUow(db *gorm.DB, isInTransaction bool) abstractions.UnitOfWork {
-	uow := &unitOfWork{}
-	if isInTransaction {
-		uow.Db = db.Begin()
-	} else {
-		uow.Db = db
+func NewUow(db *gorm.DB,
+	stock_repo abstractions.StockRepository,
+	inbox_repo abstractions.InboxRepository,
+	outbox_repo abstractions.OutboxRepository) abstractions.UnitOfWork {
+	return &unitOfWork{
+		Db:         db,
+		StockRepo:  stock_repo,
+		InboxRepo:  inbox_repo,
+		OutboxRepo: outbox_repo,
 	}
-	return uow
 }
 
 func (u *unitOfWork) GetInboxRepo() abstractions.InboxRepository {
-	return newInboxRepo(u.Db)
+	return u.InboxRepo
 }
 
 func (u *unitOfWork) GetOutboxRepo() abstractions.OutboxRepository {
-	return newOutboxRepo(u.Db)
+	return u.OutboxRepo
 }
 
 func (u *unitOfWork) GetStockRepo() abstractions.StockRepository {
-	return newStockRepo(u.Db)
+	return u.StockRepo
 }
 
 func (u *unitOfWork) Commit() error {

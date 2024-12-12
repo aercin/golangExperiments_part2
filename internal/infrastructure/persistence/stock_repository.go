@@ -12,7 +12,7 @@ type stockRepo struct {
 	Db *gorm.DB
 }
 
-func newStockRepo(db *gorm.DB) abstractions.StockRepository {
+func NewStockRepo(db *gorm.DB) abstractions.StockRepository {
 	return &stockRepo{
 		Db: db,
 	}

@@ -12,7 +12,7 @@ type inboxRepo struct {
 	Db *gorm.DB
 }
 
-func newInboxRepo(db *gorm.DB) abstractions.InboxRepository {
+func NewInboxRepo(db *gorm.DB) abstractions.InboxRepository {
 	return &inboxRepo{
 		Db: db,
 	}

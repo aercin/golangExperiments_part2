@@ -12,7 +12,7 @@ type outboxRepo struct {
 	Db *gorm.DB
 }
 
-func newOutboxRepo(db *gorm.DB) abstractions.OutboxRepository {
+func NewOutboxRepo(db *gorm.DB) abstractions.OutboxRepository {
 	return &outboxRepo{
 		Db: db,
 	}

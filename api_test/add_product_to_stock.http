@@ -3,5 +3,5 @@ content-type: application/json
 
 { 
     "ProductId":"6b95c4f0-2e44-45e0-a697-3f3f4af3de66",
-    "Quantity":4
+    "Quantity":3
 }

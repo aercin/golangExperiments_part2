@@ -29,9 +29,7 @@ func (ed *eventDispatcher) DispatchEvents(ctx context.Context) error {
 		return err
 	}
 
-	outbox_repo := ed.uow.GetOutboxRepo()
-
-	outboxMessages, err := outbox_repo.Find(ctx, query)
+	outboxMessages, err := ed.uow.GetOutboxRepo().Find(ctx, query)
 	if err != nil {
 		return err
 	}
@@ -41,7 +39,7 @@ func (ed *eventDispatcher) DispatchEvents(ctx context.Context) error {
 		err := ed.producer.PublishMessage(ctx, []byte(outboxMessage.Message))
 
 		if err == nil {
-			outbox_repo.Delete(ctx, outboxMessage.Id)
+			ed.uow.GetOutboxRepo().Delete(ctx, outboxMessage.Id)
 		}
 	}
 

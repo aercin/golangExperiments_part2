@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"go-poc/configs"
 	"go-poc/internal/application/integration_events"
 	"go-poc/internal/application/models/decrease_stock"
 	"go-poc/internal/interactor"
+
+	application_abstractions "go-poc/internal/application/abstractions"
 	"go-poc/pkg/rabbitmq"
 
+	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	jsoniter "github.com/json-iterator/go"
 )
@@ -17,11 +19,16 @@ func main() {
 
 	fmt.Println("Consumer service is preparing now..")
 
-	cfg := configs.NewConfig()
+	ioc := interactor.InitializeIoc().Scope(fmt.Sprintf("%v", uuid.New()))
+	interactor.RegisterScopeDependencies(ioc, true)
 
-	ch, _ := rabbitmq.InitRabbitMQ(cfg)
+	var consumer rabbitmq.Consumer
+	var stock_service application_abstractions.StockService
 
-	consumer, _ := rabbitmq.NewConsumer(ch, cfg)
+	ioc.Invoke(func(c rabbitmq.Consumer, stock_svc application_abstractions.StockService) {
+		consumer = c
+		stock_service = stock_svc
+	})
 
 	consumer.ConsumeMessages(context.Background(), func(msg []byte) bool {
 
@@ -38,16 +45,7 @@ func main() {
 		}
 		copier.Copy(&decrease_stock_req.Items, &consumedEvent.Message.Items)
 
-		uow := interactor.ResolveUow(cfg, true)
-		stock_service := interactor.ResolveStockService(uow)
-
 		decrease_stock_res := stock_service.DecreaseStock(context.Background(), decrease_stock_req)
-
-		if decrease_stock_res.IsSuccess {
-			uow.Commit()
-		} else {
-			uow.Rollback()
-		}
 
 		return decrease_stock_res.IsSuccess
 	})

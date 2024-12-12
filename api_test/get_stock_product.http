@@ -1,2 +1,2 @@
-GET http://localhost:8080/api/v1.0/stock/99/products/12347
+GET http://localhost:8080/api/v1.0/stock/99/products/6b95c4f0-2e44-45e0-a697-3f3f4af3de66
 content-type: application/json 

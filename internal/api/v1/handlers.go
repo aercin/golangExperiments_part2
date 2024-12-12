@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	configs_abstraction "go-poc/configs/abstractions"
 	api_abstractions "go-poc/internal/api/abstractions"
 	"go-poc/internal/application/models/add_product_to_stock"
@@ -11,16 +12,22 @@ import (
 	"net/http"
 	"strconv"
 
+	application_abstractions "go-poc/internal/application/abstractions"
+
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"go.uber.org/dig"
 )
 
 type handlers struct {
 	Configs configs_abstraction.Config
+	Ioc     *dig.Container
 }
 
-func NewHandler(configs configs_abstraction.Config) api_abstractions.Handlers {
+func NewHandler(configs configs_abstraction.Config, ioc *dig.Container) api_abstractions.Handlers {
 	return &handlers{
 		Configs: configs,
+		Ioc:     ioc,
 	}
 }
 
@@ -37,17 +44,17 @@ func (h *handlers) AddProductToStock(c echo.Context) error {
 		ctx = context.Background()
 	}
 
-	uow := interactor.ResolveUow(h.Configs, true)
+	child_scope := h.Ioc.Scope(fmt.Sprintf("%v", uuid.New()))
 
-	stock_service := interactor.ResolveStockService(uow)
+	interactor.RegisterScopeDependencies(child_scope, true)
+
+	var stock_service application_abstractions.StockService
+
+	child_scope.Invoke(func(d_stock_svc application_abstractions.StockService) {
+		stock_service = d_stock_svc
+	})
 
 	response := stock_service.AddProductToStock(ctx, *request)
-
-	if response.IsSuccess {
-		uow.Commit()
-	} else {
-		uow.Rollback()
-	}
 
 	return c.JSON(http.StatusOK, response)
 }
@@ -63,11 +70,17 @@ func (h *handlers) GetStock(c echo.Context) error {
 		ctx = context.Background()
 	}
 
-	uow := interactor.ResolveUow(h.Configs, false)
+	child_scope := h.Ioc.Scope(fmt.Sprintf("%v", uuid.New()))
 
-	stock_service := interactor.ResolveStockService(uow)
+	interactor.RegisterScopeDependencies(child_scope, false)
 
-	response := stock_service.GetStock(ctx, *request)
+	var stock_service application_abstractions.StockService
+
+	child_scope.Invoke(func(d_stock_svc application_abstractions.StockService) {
+		stock_service = d_stock_svc
+	})
+
+	response := stock_service.GetStock(child_scope, ctx, *request)
 
 	return c.JSON(http.StatusOK, response)
 }
@@ -83,9 +96,15 @@ func (h *handlers) GetStockProduct(c echo.Context) error {
 		ctx = context.Background()
 	}
 
-	uow := interactor.ResolveUow(h.Configs, false)
+	child_scope := h.Ioc.Scope(fmt.Sprintf("%v", uuid.New()))
 
-	stock_service := interactor.ResolveStockService(uow)
+	interactor.RegisterScopeDependencies(child_scope, false)
+
+	var stock_service application_abstractions.StockService
+
+	child_scope.Invoke(func(d_stock_svc application_abstractions.StockService) {
+		stock_service = d_stock_svc
+	})
 
 	response := stock_service.GetStockProduct(ctx, *request)
 

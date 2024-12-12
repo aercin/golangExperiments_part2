@@ -10,6 +10,8 @@ import (
 	"go-poc/pkg/data_validation"
 
 	"github.com/labstack/echo/v4"
+
+	"go-poc/internal/interactor"
 )
 
 func NewHttpServer(c abstractions.Config) {
@@ -18,7 +20,7 @@ func NewHttpServer(c abstractions.Config) {
 
 	eg_v1 := e.Group("api/v1.0/stock")
 
-	NewRouter(eg_v1, v1.NewHandler(c))
+	NewRouter(eg_v1, v1.NewHandler(c, interactor.InitializeIoc()))
 
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%v", c.GetValue("HttpServer:Port"))))
 }

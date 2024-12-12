@@ -3,16 +3,32 @@ package main
 import (
 	"context"
 	"fmt"
-	"go-poc/configs"
+	config_abstractions "go-poc/configs/abstractions"
+	application_abstractions "go-poc/internal/application/abstractions"
 	"go-poc/internal/interactor"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func main() {
 
-	cfg := configs.NewConfig()
+	ioc := interactor.InitializeIoc().Scope(fmt.Sprintf("v", uuid.New()))
 
-	eventDispatcher := interactor.ResolveEventDispatcher(cfg)
+	interactor.RegisterScopeDependencies(ioc, false)
+
+	var eventDispatcher application_abstractions.EventDispatcher
+	var cfg config_abstractions.Config
+
+	err := ioc.Invoke(func(ed application_abstractions.EventDispatcher, config config_abstractions.Config) {
+		eventDispatcher = ed
+		cfg = config
+	})
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	fmt.Printf("Message relay service is started at %v \n", time.Now())
 

@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewDbConnection(configs abstractions.Config) *gorm.DB {
+func NewDbConnection(configs abstractions.Config, isInTransaction bool) *gorm.DB {
 
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		configs.GetValue("Postgres:Host"),
@@ -31,6 +31,10 @@ func NewDbConnection(configs abstractions.Config) *gorm.DB {
 	// Tabloyu oluştur (eğer yoksa)
 	if err := db.AutoMigrate(&entities.Stock{}, &entities.StockProduct{}, &entities.OutboxMessage{}, &entities.InboxMessage{}); err != nil {
 		log.Fatalf("Error migrating database: %v", err)
+	}
+
+	if isInTransaction {
+		db = db.Begin()
 	}
 
 	return db
