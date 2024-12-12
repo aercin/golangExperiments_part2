@@ -5,6 +5,7 @@
   - Outbox/Inbox Patterns
   - Repository Pattern
   - Unit Of Work Pattern
+  - Dependency Injection Management via Uber/Dig
   - Configuration Management via Viper
   - Asynchronous communication via rabbitmq/amqp091-go
   - Http Server via Echo
