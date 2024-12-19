@@ -14,4 +14,5 @@
   - Object Relational Mapping via Gorm
   - Data validation via go-playground/validator
   - Structured Logging via logrus with File export
+  - Varnish cache behind nginx (tls termination)
     
